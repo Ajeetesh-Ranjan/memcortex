@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain Monitor — Unified Memory Stack</title>
+<style>
+:root{--bg:#0b0f14;--card:#131a23;--line:#223041;--txt:#dbe6f3;--dim:#8fa3bb;
+--acc:#00e6a8;--acc2:#5aa9ff;--warn:#ffb454;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);
+font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;
+gap:16px;align-items:baseline;flex-wrap:wrap}
+header h1{margin:0;font-size:20px}header h1 .dot{color:var(--acc)}
+header span{color:var(--dim);font-size:12px}
+nav{display:flex;gap:8px;padding:12px 24px;border-bottom:1px solid var(--line);
+flex-wrap:wrap}
+nav button{background:var(--card);border:1px solid var(--line);color:var(--txt);
+padding:8px 14px;border-radius:8px;cursor:pointer}
+nav button.on{border-color:var(--acc);color:var(--acc)}
+main{padding:20px 24px;max-width:1200px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:14px 16px;margin-bottom:12px}
+.card h3{margin:0 0 4px;font-size:12px;color:var(--dim);text-transform:uppercase;
+letter-spacing:.06em}
+.big{font-size:28px;font-weight:700}.sub{color:var(--dim);font-size:12px}
+.ok{color:var(--acc)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--dim);font-weight:600}
+.pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;
+border:1px solid var(--line)}
+.pill.up{color:var(--acc);border-color:var(--acc)}
+.pill.down{color:var(--bad);border-color:var(--bad)}
+svg.chart{width:100%;height:220px;background:#0e141c;border:1px solid var(--line);
+border-radius:10px}
+footer{padding:12px 24px;color:var(--dim);font-size:12px}
+.tab{display:none}.tab.on{display:block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:800px){.two{grid-template-columns:1fr}}
+/* --- AI Architecture Lab branding --- */
+.logo{width:26px;height:26px;vertical-align:-6px;margin-right:8px;border-radius:5px;
+  background:#0a0c0c;padding:2px}
+.brain-hero{padding-bottom:6px}
+.brain-host{display:flex;justify-content:center;margin:6px 0 10px}
+.brain-host svg{width:100%;max-width:860px;height:auto}
+.aal-spark{animation:aal-pulse 2.6s ease-in-out infinite}
+@keyframes aal-pulse{0%,100%{opacity:.35}50%{opacity:1}}
+.aal-lobe{transition:opacity .25s ease,filter .25s ease;cursor:pointer}
+.aal-lobe:hover{filter:brightness(1.35)}
+.aal-label{font-family:Inter,system-ui,sans-serif}
+@media(prefers-reduced-motion:reduce){.aal-spark{animation:none;opacity:.8}}
+
+/* ---- drive ingest ---- */
+.drive-link-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.drive-link-row input[type=text],.drive-link-row input:not([type]),.drive-link-row select{
+ background:#111315;color:inherit;border:1px solid rgba(255,255,255,.14);
+ border-radius:6px;padding:7px 9px;font:inherit;font-size:13px;min-width:170px;flex:1}
+.drive-link-row button{padding:7px 14px;font-size:13px;cursor:pointer}
+.drive-link-row label{font-size:13px;display:flex;align-items:center;gap:4px;opacity:.85}
+.stack{display:flex;height:22px;border-radius:5px;overflow:hidden;background:rgba(255,255,255,.07);margin:12px 0 8px}
+.stack .seg{display:block;height:100%;transition:width .4s ease}
+.stack-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;opacity:.85}
+.stack-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.stack-legend b{font-variant-numeric:tabular-nums}
+.mini{font-size:11px;padding:2px 7px;border-radius:5px;border:1px solid #2b3a55;background:#16233c;color:#cfe0ff;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+<h1><img class="logo" src="/static/logo-64.png" alt="The AI Architecture Lab logo"><span class="dot">●</span> Brain Monitor</h1>
+<span>The AI Architecture Lab — Unified Memory Stack · growth · retention · tokens</span>
+<span id="clock"></span>
+</header>
+<nav>
+<button data-t="brain" class="on">Brain Map</button>
+<button data-t="overview">Overview</button>
+<button data-t="growth">Brain Growth</button>
+<button data-t="retention">Retention</button>
+<button data-t="tokens">Tokens Saved</button>
+<button data-t="librarian">Librarian</button>
+<button data-t="autopilot">Autopilot</button>
+<button data-t="drive">Drive Ingest</button>
+<button data-t="agents">Agent Graph</button>
+<button data-t="compare">Supermemory × Headroom</button>
+</nav>
+<main>
+<section id="t-brain" class="tab on">
+<div class="card brain-hero"><h3>Segmented Brain — memory by subject</h3>
+<div id="brain-svg-host" class="brain-host"></div>
+<div class="sub" id="brain-note"></div></div>
+<div class="two">
+<div class="card"><h3>Subject breakdown</h3><div id="brain-table"></div></div>
+<div class="card"><h3>Agents on this stack</h3><div id="brain-agents"></div></div>
+</div>
+<div class="card"><h3>Value delivered</h3><div id="brain-value"></div></div>
+</section>
+<section id="t-overview" class="tab"><div class="grid" id="ov-cards"></div>
+<div class="card"><h3>Services</h3><div id="ov-svc"></div></div></section>
+<section id="t-growth" class="tab">
+<div class="card"><h3>Memories over time (snapshots every 60s)</h3>
+<svg class="chart" id="ch-growth" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+<div class="sub" id="growth-note"></div></div>
+<div class="card"><h3>Memories per container tag</h3><div id="growth-tags"></div></div>
+</section>
+<section id="t-retention" class="tab"><div id="ret-body"></div></section>
+<section id="t-tokens" class="tab"><div class="grid" id="tok-cards"></div>
+<div class="card"><h3>How to read this</h3><div class="sub">
+Counts come from logged agent turns (<code>conversation_turns</code>) and the
+compression cache. When the Headroom proxy is up, its live counters are the
+source of truth — run <code>headroom savings</code> for the audited number.
+</div></div></section>
+<section id="t-librarian" class="tab">
+<div class="card"><h3>Curator — expiry sweep · dedup · hot-context promotion</h3>
+<div class="sub" id="lib-cfg"></div>
+<div style="margin-top:10px"><button id="lib-run" style="background:var(--card);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:8px;cursor:pointer">Run now</button>
+<span class="sub" id="lib-msg"></span></div></div>
+<div class="card"><h3>Recent runs</h3><div id="lib-runs"></div></div>
+</section>
+<section id="t-autopilot" class="tab">
+<div class="card"><h3>Autopilot Engine — self-heal · cleaning · maintenance</h3>
+<div class="sub" id="ap-cfg"></div>
+<div style="margin-top:10px"><button id="ap-run" style="background:var(--card);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:8px;cursor:pointer">Run now</button>
+<span class="sub" id="ap-msg"></span></div></div>
+<div class="card"><h3>Value Dashboard — lifetime impact</h3><div id="ap-value"></div></div>
+<div class="card"><h3>Recent activity log</h3><div id="ap-log"></div></div>
+</section>
+<section id="t-drive" class="tab">
+<div class="card"><h3>Connect a drive</h3>
+<div class="sub">Anything the stack can read from. Linking a drive never changes it &mdash; ingest runs are read-only and leftover files are only reported.</div>
+<div id="drive-providers"></div>
+<div class="drive-link-row">
+<input id="drive-name" placeholder="name (e.g. Client Archive)">
+<input id="drive-root" placeholder="folder under your home (e.g. Documents) or blank for whole drive">
+<button id="drive-link">Link</button>
+</div>
+<div class="sub" id="drive-msg"></div>
+</div>
+
+<div class="card"><h3>Train the brain</h3>
+<div class="drive-link-row">
+<select id="drive-pick"></select>
+<select id="drive-scope"><option value="workspace">Workspace folder</option><option value="full">Whole drive</option></select>
+<input id="drive-workspace" placeholder="workspace subfolder (blank = drive root)">
+<button id="drive-preview">Preview</button>
+<button id="drive-run">Run ingest</button>
+</div>
+<div class="drive-link-row" id="drive-agents">
+<label><input type="checkbox" value="opencode" checked> opencode</label>
+<label><input type="checkbox" value="hermes"> hermes</label>
+<label><input type="checkbox" value="codex"> codex</label>
+<label><input type="checkbox" value="claude"> claude</label>
+</div>
+<div class="sub" id="drive-preview-note"></div>
+</div>
+
+<div class="card"><h3>Consumed vs leftover</h3>
+<div class="grid" id="drive-stats"></div>
+<div id="drive-bar"></div>
+<div class="sub" id="drive-run-note"></div>
+</div>
+
+<div class="two">
+<div class="card"><h3>Why files were left behind</h3><div id="drive-reasons"></div></div>
+<div class="card"><h3>Subjects learned</h3><div id="drive-subjects"></div></div>
+</div>
+
+<div class="card"><h3>Run history</h3><div id="drive-runs"></div></div>
+</section>
+<section id="t-compare" class="tab"><div class="two" id="cmp-cols"></div></section>
+<section id="t-agents" class="tab">
+<div class="card"><h3>Modules connected over the API</h3>
+<div class="sub">What each agent can reach, and whether it is actually being used. A module with zero calls is dead weight; a module that is failing is worth knowing before the agent silently degrades.</div>
+<div class="drive-link-row">
+<input id="mod-agent" placeholder="agent (e.g. opencode)" value="opencode">
+<input id="mod-name" placeholder="module name (e.g. gdrive-sync)">
+<select id="mod-kind"><option>tool</option><option>mcp</option><option>api</option><option>model</option><option>prompt</option></select>
+<input id="mod-endpoint" placeholder="endpoint (optional)">
+<button id="mod-attach">Attach</button>
+</div>
+<div class="sub" id="mod-msg"></div>
+<div id="mod-table"></div>
+</div>
+
+<div class="card"><h3>Subagent lineage</h3>
+<div class="grid" id="ag-cards"></div>
+<div class="sub">Depth matters more than count: twenty subagents at depth one is a very different shape from five nested four deep.</div>
+<div class="drive-link-row">
+<input id="sub-name" placeholder="subagent name (e.g. drive-scanner)">
+<input id="sub-agent" placeholder="agent type" value="opencode">
+<input id="sub-task" placeholder="task (optional)">
+<select id="sub-parent"><option value="">no parent (root)</option></select>
+<button id="sub-spawn">Spawn</button>
+</div>
+<div class="sub" id="sub-msg"></div>
+<div id="ag-tree"></div>
+</div>
+
+<div class="card"><h3>Subagent detail</h3>
+<div class="sub" id="ag-detail-note">Pick a subagent to see the memories it produced, or move it under a different parent. Relinking moves the pointer &mdash; no memory is ever re-ingested or lost.</div>
+<div id="ag-detail"></div>
+</div>
+</section>
+</main>
+<footer>Auto-refresh 30s · snapshots 60s · <span id="src"></span></footer>
+<script src="/static/brain-svg.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>n==null?"–":Number(n).toLocaleString();
+async function j(p){const r=await fetch(p);if(!r.ok)throw 0;return r.json()}
+function pill(up){return `<span class="pill ${up?'up':'down'}">${up?'UP':'DOWN'}</span>`}
+function card(t,v,s){return `<div class="card"><h3>${t}</h3><div class="big">${v}</div><div class="sub">${s||""}</div></div>`}
+function line(el,pts,color){ // pts: [[x01..],...] normalized later
+ if(!pts.length){el.innerHTML="";return}
+ const W=600,H=220,P=14,max=Math.max(...pts.map(p=>p[1]),1);
+ const X=i=>P+i*(W-2*P)/Math.max(pts.length-1,1),Y=v=>H-P-(v/max)*(H-2*P);
+ let d="M"+X(0)+","+Y(pts[0][1]);
+ pts.forEach((p,i)=>{if(i)d+=` L${X(i)},${Y(p[1])}`});
+ el.innerHTML=`<path d="${d}" fill="none" stroke="${color}" stroke-width="2"/>`+
+  pts.map((p,i)=>`<circle cx="${X(i)}" cy="${Y(p[1])}" r="2.5" fill="${color}"><title>${p[0]}: ${p[1]}</title></circle>`).join("");
+}
+async function overview(){try{const o=await j("/api/overview");
+ const s=o.supermemory;
+ $("ov-cards").innerHTML=
+  card("Memories",fmt(s.memories),`${fmt(s.static)} static · ${fmt(s.dynamic)} dynamic`)+
+  card("Documents",fmt(s.documents),`${fmt(s.tags)} container tags`)+
+  card("Vector points",fmt(o.qdrant.points),`${fmt(o.qdrant.collections)} collections`)+
+  card("Tokens saved",fmt(o.tokens.saved),`${(o.tokens.ratio*100).toFixed(1)}% reduction`)+
+  card("PG rows",fmt(Object.values(o.postgres.tables).reduce((a,b)=>a+b,0)),`${(o.postgres.db_bytes/1048576).toFixed(1)} MB`)+
+  card("Redis",fmt(o.redis.keys)+" keys",(o.redis.used_bytes/1048576).toFixed(2)+" MB");
+ const rows=[["Supermemory :6767",s.up],["Headroom :8787",o.headroom.up],
+  ["Qdrant",o.qdrant.up],["PostgreSQL",true],["Redis",o.redis.up]];
+ $("ov-svc").innerHTML=`<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${pill(r[1])}</td></tr>`).join("")}</table>`;
+}catch(e){$("ov-cards").innerHTML=card("Error","!","backend unreachable")}}
+async function growth(){try{const g=await j("/api/growth?hours=24");
+ const pts=g.points.map(p=>[p.taken_at.slice(5,16),p.sm_memories]);
+ line($("ch-growth"),pts,"#00e6a8");
+ $("growth-note").textContent=g.points.length?`${g.points.length} snapshots · last ${g.points[g.points.length-1].taken_at}`:"Collecting first snapshots (one per 60s)…";
+ const r=await j("/api/retention");
+ $("growth-tags").innerHTML=`<table><tr><th>Tag</th><th>Memories</th><th>Docs</th><th>Static</th><th>Dynamic</th><th>Last activity</th></tr>`+
+  r.tags.map(t=>`<tr><td>${t.tag}</td><td>${fmt(t.memories)}</td><td>${fmt(t.documents)}</td><td>${fmt(t.static)}</td><td>${fmt(t.dynamic)}</td><td>${t.lastActivity||"–"}</td></tr>`).join("")+`</table>`;
+}catch(e){}}
+async function retention(){try{const r=await j("/api/retention");
+ $("ret-body").innerHTML=`<div class="grid">`+
+  card("Total memories",fmt(r.totals.memories),`${fmt(r.totals.tags)} tags`)+
+  card("Static (kept)",fmt(r.totals.static),"permanent traits")+
+  card("Dynamic (fresh)",fmt(r.totals.dynamic),"recent context")+
+  card("Forgotten",fmt(r.totals.forgotten),"auto-expired / deleted")+`</div>
+ <div class="card"><h3>Per-tag retention</h3><table><tr><th>Tag</th><th>Static</th><th>Dynamic</th><th>Forgotten</th><th>Expiring (TTL)</th></tr>`+
+  r.tags.map(t=>`<tr><td>${t.tag}</td><td>${fmt(t.static)}</td><td>${fmt(t.dynamic)}</td><td>${fmt(t.forgotten)}</td><td>${fmt(t.expiring)}</td></tr>`).join("")+`</table>
+  ${r.truncated?'<div class="sub">Tag list capped at 25 — see API for full set.</div>':""}</div>`;
+}catch(e){}}
+async function tokens(){try{const t=await j("/api/tokens");
+ $("tok-cards").innerHTML=
+  card("Tokens saved",fmt(t.saved),`${(t.ratio*100).toFixed(1)}% of ${fmt(t.original)} sent`)+
+  card("Original",fmt(t.original),"tokens into compression")+
+  card("Compressed",fmt(t.compressed),"tokens after compression")+
+  card("Agent turns",fmt(t.turns),"logged turns")+
+  card("Cache hits",fmt(t.cache_hits),`${fmt(t.cache_entries)} cached blobs`);
+}catch(e){}}
+async function librarian(){try{const l=await j("/api/librarian/runs");
+  $("lib-cfg").textContent=`Scheduled: ${l.enabled?"ON":"OFF"} · every ${l.interval_sec}s · auto-forget duplicates: ${l.auto_forget?"ON (deletes)":"OFF (report-only)"}`;
+  $("lib-runs").innerHTML=l.runs.length?`<table><tr><th>Started</th><th>Mode</th><th>Tags</th><th>Dups found/confirmed</th><th>Forgotten</th><th>Expired swept</th><th>Promoted</th><th>PG cleaned</th><th>Error</th></tr>`+
+   l.runs.map(r=>`<tr><td>${(r.started_at||"").slice(0,16).replace("T"," ")}</td><td>${r.mode}</td><td>${r.tags_scanned}</td><td>${r.duplicates_found}/${r.duplicates_confirmed}</td><td>${r.forgotten}</td><td>${r.expired_swept}</td><td>${r.promoted}</td><td>${r.pg_cleaned}</td><td>${r.error||"–"}</td></tr>`).join("")+`</table>`:"No runs yet — the first scheduled pass starts ~2 min after boot, or press Run now.";
+}catch(e){$("lib-runs").textContent="backend unreachable";}}
+async function autopilot(){try{const a=await j("/api/autopilot/status");
+  $("ap-cfg").textContent=`Scheduled: ${a.enabled?"ON":"OFF"} · every ${a.interval_sec}s · retention ${a.snapshot_retention_days}d · max ${fmt(a.max_snapshots)} snaps`;
+  const v=a.value_summary||[];
+  $("ap-value").innerHTML=v.length?`<table><tr><th>Action</th><th>Category</th><th>Runs</th><th>OK</th><th>Auto-fixed</th><th>Units reclaimed</th></tr>`+
+   v.map(r=>`<tr><td>${r.action}</td><td>${r.category}</td><td>${fmt(r.runs)}</td><td>${fmt(r.successful)}</td><td>${fmt(r.auto_fixed)}</td><td>${fmt(r.units_reclaimed)}</td></tr>`).join("")+`</table>`:"No value data yet — run Autopilot to generate.";
+  const r=a.recent||[];
+  $("ap-log").innerHTML=r.length?`<table><tr><th>Time</th><th>Actor</th><th>Category</th><th>Action</th><th>Target</th><th>Result</th><th>Before</th><th>After</th></tr>`+
+   r.map(x=>`<tr><td>${(x.ts||"").slice(0,16).replace("T"," ")}</td><td>${x.actor}</td><td>${x.category}</td><td>${x.action}</td><td>${x.target||"–"}</td><td><span class="pill ${x.result==='ok'?'up':x.result==='fixed'?'up':x.result==='skipped'?'warn':'bad'}">${x.result.toUpperCase()}</span></td><td>${fmt(x.before_val)}</td><td>${fmt(x.after_val)}</td></tr>`).join("")+`</table>`:"No activity yet.";
+}catch(e){$("ap-log").textContent="backend unreachable";}}
+async function compare(){try{const c=await j("/api/compare");
+ const col=(name,d,rows)=>`<div class="card"><h3>${name}</h3><div class="sub">${d.role}</div>
+  <div style="margin:8px 0">${pill(d.up)} <span class="sub">:${d.port}</span></div>
+  <table>${rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td></tr>`).join("")}</table></div>`;
+ $("cmp-cols").innerHTML=
+  col("Supermemory",c.supermemory,[["Container tags",fmt(c.supermemory.container_tags)],
+   ["Documents",fmt(c.supermemory.documents)],["Memories",fmt(c.supermemory.memories)],
+   ["Static facts",fmt(c.supermemory.static_facts)],["Dynamic context",fmt(c.supermemory.dynamic_context)],
+   ["Forgotten",fmt(c.supermemory.forgotten)]])+
+  col("Headroom",c.headroom,[["Tokens in",fmt(c.headroom.tokens_original)],
+   ["Tokens out",fmt(c.headroom.tokens_compressed)],["Tokens saved",fmt(c.headroom.tokens_saved)],
+   ["Savings ratio",(c.headroom.savings_ratio*100).toFixed(1)+"%"],
+   ["Vector collections",fmt(c.headroom.vector_collections)],["Vector points",fmt(c.headroom.vector_points)],
+   ["Counter source",c.headroom.sources]]);
+}catch(e){}}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+ document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+ b.classList.add("on");
+ document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
+$("t-"+b.dataset.t).classList.add("on");refresh()});
+async function brain(){
+ try{
+  const b=await j("/api/brain");
+  $("brain-svg-host").innerHTML=BrainSVG.render(b);
+  $("brain-note").innerHTML=b.source==="empty"
+   ? "PostgreSQL unreachable or no memories yet — showing the empty anatomy skeleton."
+   : `Lobe area and glow scale with each subject’s share of stored memory. Sampled from the ${b.sample_cap} most recent rows${b.generated_at?" · "+b.generated_at:""}.`;
+  $("brain-table").innerHTML=`<table><tr><th>Subject</th><th>Anatomical lobe</th><th>Memories</th><th>Share</th><th>Avg importance</th><th>Top sources</th></tr>`+
+   b.lobes.map(l=>{const pct=b.total?Math.round(l.memories/b.total*100):0;
+    const bar=`<span style="display:inline-block;width:64px;height:6px;border-radius:3px;background:${l.color};opacity:${0.25+0.75*(l.memories?Math.min(1,l.memories/(b.lobes[0].memories||1)):0)}"></span>`;
+    const src=Object.entries(l.sources||{}).map(([k,v])=>`${k} ${v}`).join(", ")||"–";
+    return `<tr><td><span style="color:${l.color}">●</span> ${l.subject}</td><td class="sub">${l.lobe}</td><td><b>${fmt(l.memories)}</b> ${bar}</td><td>${b.total?pct:0}%</td><td>${l.memories?l.avg_importance.toFixed(2):"–"}</td><td class="sub">${src}</td></tr>`}).join("")+`</table>`;
+  const ag=b.agents||[];
+  $("brain-agents").innerHTML=ag.length?`<table><tr><th>Agent</th><th>Status</th><th>Project</th><th>Model</th><th>Last seen</th></tr>`+
+   ag.map(a=>`<tr><td><b>${a.agent_type||"–"}</b></td><td>${pill(a.status==="active")}</td><td class="sub">${a.project_id||"–"}</td><td class="sub">${a.model||"–"}</td><td class="sub">${(a.last_seen||"").slice(0,19).replace("T"," ")||"–"}</td></tr>`).join("")+`</table>`
+   :`<div class="sub">No agent sessions recorded yet. Run an instrumented agent through the Headroom proxy (<code>headroom wrap &lt;cmd&gt;</code>) or POST a session to <code>/api/session</code> and it will appear here.</div>`;
+  try{
+   const o=await j("/api/overview");
+   const tk=o.tokens||{},ap=await j("/api/autopilot/value");
+   const saved=tk.saved||0,ratio=(tk.ratio||0)*100;
+   const acts=(ap||[]).reduce((s,r)=>s+(r.runs||0),0);
+   const fixed=(ap||[]).reduce((s,r)=>s+(r.auto_fixed||0),0);
+   $("brain-value").innerHTML=`<div class="grid">`+
+    card("Memories indexed",fmt(b.total),`${b.classified} classified · ${b.unclassified} general`)+
+    card("Tokens saved",fmt(saved),`${ratio.toFixed(1)}% compression ratio`)+
+    card("Autopilot actions",fmt(acts),`${fmt(fixed)} auto-remediated`)+
+    card("Agents",fmt(ag.length),`${ag.filter(a=>a.status==="active").length} active now`)+
+   `</div>`;
+  }catch(e){}
+ }catch(e){$("brain-svg-host").innerHTML="";}
+}
+function driveBar(run){
+ const segs=[["consumed",run.consumed,"#00e6a8"],["leftover",run.leftover,"#ffb454"],["skipped",run.skipped,"#5c656e"]];
+ const tot=segs.reduce((a,s)=>a+s[1],0)||1;
+ $("drive-bar").innerHTML=`<div class="stack">`+segs.map(([k,v,c])=>
+   `<span class="seg" style="width:${(v/tot*100).toFixed(1)}%;background:${c}" title="${k}: ${v}"></span>`).join("")+`</div>
+  <div class="stack-legend">`+segs.map(([k,v,c])=>
+   `<span><i style="background:${c}"></i>${k} <b>${fmt(v)}</b> (${Math.round(v/tot*100)}%)</span>`).join("")+`</div>`;
+}
+async function drive(){
+ try{
+  const d=await j("/api/drives");
+  $("drive-providers").innerHTML=`<table><tr><th>Provider</th><th>Link</th><th>State</th></tr>`+
+   d.providers.map(p=>`<tr><td>${p.label}</td><td>${p.linkable?'available':'not yet'}</td>
+    <td class="sub">${p.note}</td></tr>`).join("")+`</table>`;
+  const linked=d.linked||[];
+  $("drive-runs").innerHTML="";
+  $("drive-pick").innerHTML=linked.map(x=>`<option value="${x.id}">${x.name} (${x.root})</option>`).join("")
+    ||`<option value="">no drive linked yet</option>`;
+  if(!linked.length){$("drive-stats").innerHTML="";$("drive-run-note").textContent="Link a drive above to start.";return}
+  const runs=(await j("/api/ingest/runs")).runs||[];
+  $("drive-runs").innerHTML=`<table><tr><th>Started</th><th>Scope</th><th>Agents</th><th>Seen</th>
+    <th>Consumed</th><th>Leftover</th><th>Memories</th></tr>`+runs.map(r=>`<tr>
+    <td class="sub">${String(r.started_at).slice(5,19).replace("T"," ")}</td>
+    <td>${r.scope}</td><td class="sub">${(r.agents||[]).join(", ")}</td>
+    <td>${fmt(r.files_seen)}</td><td>${fmt(r.consumed)}</td><td>${fmt(r.leftover)}</td>
+    <td>${fmt(r.memories_created)}</td></tr>`).join("")+`</table>`;
+  const last=runs[0];
+  if(!last){$("drive-stats").innerHTML="";$("drive-run-note").textContent="No runs yet.";return}
+  driveBar(last);
+  const det=await j("/api/ingest/runs/"+last.id);
+  const r=det.run;
+  $("drive-stats").innerHTML=
+   card("Files seen",fmt(r.files_seen),`${(r.bytes_consumed/1048576).toFixed(2)} MB consumed`) +
+   card("Memories learned",fmt(r.memories_created),"filed into the segmented brain") +
+   card("Leftover",fmt(r.leftover),`${(r.bytes_leftover/1048576).toFixed(2)} MB not used`) +
+   card("Skipped",fmt(r.skipped),"never candidates: binary or too small");
+  $("drive-run-note").textContent="Nothing on the drive was modified — leftover is a report, not a deletion.";
+  $("drive-reasons").innerHTML=`<table><tr><th>Verdict</th><th>Reason</th><th>Files</th></tr>`+
+   (det.reasons||[]).map(x=>`<tr><td>${x.verdict}</td><td class="sub">${x.reason}</td><td>${x.n}</td></tr>`).join("")+`</table>`;
+  $("drive-subjects").innerHTML=`<table><tr><th>Subject</th><th>Files</th><th>Chunks</th></tr>`+
+   (det.subjects||[]).map(x=>`<tr><td>${x.subject}</td><td>${x.n}</td><td>${fmt(x.chunks)}</td></tr>`).join("")+`</table>`;
+ }catch(e){}
+}
+
+async function agents(){
+ try{
+  const g=await j("/api/agents/graph");
+  const mods=await j("/api/agents/modules");
+
+  $("ag-cards").innerHTML=
+   card("Subagents",fmt(g.total_subagents),`${fmt(g.running)} running now`)+
+   card("Max depth",fmt(g.max_depth),g.max_depth>3?"deep nesting":"shallow")+
+   card("Memories linked",fmt(g.memories_linked),"attributable to a subagent")+
+   card("Modules",fmt(mods.modules.length),
+     Object.entries(g.modules_by_agent).map(([a,v])=>`${a}: ${v.modules}`).join(" · ")||"none yet");
+
+  const mrows=mods.modules.map(m=>{
+   const idle=m.call_count===0;
+   const stale=m.last_called_at?Math.round((Date.now()-new Date(m.last_called_at))/60000):null;
+   return `<tr><td><b>${m.agent_type}</b></td><td>${m.name}</td><td><span class="sub">${m.kind}</span></td>`+
+    `<td class="sub">${m.endpoint||m.api_ref||"–"}</td>`+
+    `<td>${fmt(m.call_count)} ${idle?'<span class="pill warn">NEVER CALLED</span>':""}</td>`+
+    `<td class="sub">${stale==null?"–":stale<60?stale+"m ago":Math.round(stale/60)+"h ago"}</td>`+
+    `<td>${m.capabilities&&m.capabilities.length?m.capabilities.join(", "):"–"}</td>`+
+    `<td><button class="mini" onclick="modCall('${m.id}')">call</button> `+
+    `<button class="mini" onclick="modDetach('${m.id}')">detach</button></td></tr>`});
+  $("mod-table").innerHTML=mods.modules.length?
+   `<table><tr><th>Agent</th><th>Module</th><th>Kind</th><th>Endpoint</th><th>Calls</th><th>Last used</th><th>Capabilities</th><th></th></tr>${mrows.join("")}</table>`:
+   "No modules attached yet.";
+
+  const flat=[]; (function walk(ns){ns.forEach(n=>{flat.push(n);walk(n.children)})})(g.roots);
+  FLAT=flat;
+  const sel=$("sub-parent");
+  const keep=sel.value;
+  sel.innerHTML='<option value="">no parent (root)</option>'+
+   flat.map(n=>`<option value="${n.id}">${"  ".repeat(n.depth-1)}${n.name} (d${n.depth})</option>`).join("");
+  sel.value=keep;
+
+  $("ag-tree").innerHTML=g.total_subagents?`<table><tr><th>Subagent</th><th>Agent</th><th>Depth</th><th>Status</th><th>Task</th><th>Memories</th><th>Subtree</th><th></th></tr>`+
+   flat.map(n=>`<tr><td>${"→".repeat(n.depth-1)} <b>${n.name}</b></td><td class="sub">${n.agent_type}</td>`+
+    `<td>${n.depth}</td><td>${n.status}</td><td class="sub">${(n.task||"–").slice(0,48)}</td>`+
+    `<td>${n.memories}</td><td>${n.subtree}</td>`+
+    `<td><button class="mini" onclick="agOpen('${n.id}')">open</button></td></tr>`).join("")+"</table>"
+   :"No subagents recorded yet. Agents register them via <span class='sub'>POST /api/agents/subagents</span>.";
+
+  if(window.__agOpen){const n=flat.find(x=>x.id===window.__agOpen);
+   if(n)agDetail(n);else window.__agOpen=null;}
+ }catch(e){$("ag-tree").innerHTML="<div class=sub>backend unreachable</div>"}
+}
+async function agDetail(n){
+ window.__agOpen=n.id;
+ try{
+  const m=await j(`/api/agents/subagents/${n.id}/memory`);
+  const r=m.memories||[];
+  $("ag-detail").innerHTML=`<h3 style="margin-top:0">${n.name} <span class="sub">${n.agent_type} · depth ${n.depth} · ${n.status}</span></h3>`+
+   `<div class="sub">${(n.task||"no task recorded")}</div>`+
+   `<div class="drive-link-row"><select id="ag-relink">${flatOpts(n)}</select><button class="mini" onclick="agRelink('${n.id}')">Relink</button></div>`+
+   (r.length?`<table><tr><th>Role</th><th>Memory</th><th>Source</th><th>Agent</th><th>Importance</th></tr>`+
+     r.map(x=>`<tr><td>${x.role}</td><td>${(x.content||"").slice(0,90).replace(/\n/g," ")}</td>`+
+       `<td class="sub">${x.source||"–"}</td><td class="sub">${x.agent_type||"–"}</td><td>${Number(x.importance).toFixed(2)}</td></tr>`).join("")+"</table>"
+    :"No memories linked to this subagent yet.");
+ }catch(e){$("ag-detail").innerHTML="<div class=sub>could not load</div>"}
+}
+let FLAT=[];
+function flatOpts(n){return '<option value="">no parent (root)</option>'+
+ FLAT.filter(x=>x.id!==n.id&&x.depth<=n.depth).map(x=>
+  `<option value="${x.id}">${"  ".repeat(x.depth-1)}${x.name} (d${x.depth})</option>`).join("")}
+async function post(p,body){
+ const r=await fetch(p,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});
+ return r.json();
+}
+window.modCall=async id=>{await post("/api/agents/modules/call",{id});agents()};
+window.modDetach=async id=>{if(!confirm("Detach this module? Nothing else is deleted."))return;
+ await post("/api/agents/modules/detach",{id});agents()};
+window.agOpen=async id=>{FLAT=FLAT;await agents();agDetail(FLAT.find(x=>x.id===id))};
+window.agRelink=async id=>{
+ const v=$("ag-relink").value;
+ await post(`/api/agents/subagents/${id}/relink`,{parent_id:v||null});
+ $("sub-msg").textContent="relinked — subtree shifted, memories untouched";agents()};
+
+$("mod-attach").onclick=async()=>{
+ const r=await post("/api/agents/modules",{agent_type:$("mod-agent").value.trim(),
+  name:$("mod-name").value.trim(),kind:$("mod-kind").value,endpoint:$("mod-endpoint").value.trim()||null});
+ $("mod-msg").textContent=r.error||`attached ${r.name}`;agents()};
+$("sub-spawn").onclick=async()=>{
+ const r=await post("/api/agents/subagents",{name:$("sub-name").value.trim(),
+  agent_type:$("sub-agent").value.trim(),task:$("sub-task").value.trim()||null,
+  parent_id:$("sub-parent").value||null});
+ $("sub-msg").textContent=r.error?r.error:`spawned ${r.name} at depth ${r.depth}`;
+ if(!r.error)$("sub-name").value="";agents()};
+
+async function refresh(){$("clock").textContent=new Date().toLocaleTimeString();
+  await Promise.all([brain(),overview(),growth(),retention(),tokens(),librarian(),autopilot(),drive(),compare(),agents()]);
+  try{const h=await j("/api/health");$("src").textContent="auth: "+h.auth;}catch(e){}}
+$("drive-link").onclick=async()=>{
+ $("drive-msg").textContent="linking…";
+ try{const r=await (await fetch("/api/drives/link",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({provider:"local",name:$("drive-name").value||"drive",root:$("drive-root").value})})).json();
+  if(r.error)throw 0;
+  $("drive-msg").textContent="linked "+r.name+" → "+r.root;drive();}catch(e){$("drive-msg").textContent="could not link — check the folder exists";}};
+function driveAgents(){return [...document.querySelectorAll("#drive-agents input:checked")].map(i=>i.value)}
+$("drive-preview").onclick=async()=>{
+ try{const p=await j(`/api/ingest/preview?drive_id=${$("drive-pick").value}&scope=${$("drive-scope").value}&workspace=${encodeURIComponent($("drive-workspace").value)}`);
+  $("drive-preview-note").textContent=`${p.files} files · ${p.readable} readable · ${p.opaque} need a converter · ${p.too_small} too small · ${p.too_large} over limit`;
+ }catch(e){$("drive-preview-note").textContent="pick a linked drive first";}};
+$("drive-run").onclick=async()=>{
+ $("drive-run-note").textContent="running…";
+ try{const r=await (await fetch("/api/ingest/run",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({drive_id:$("drive-pick").value,scope:$("drive-scope").value,
+   workspace:$("drive-workspace").value,agents:driveAgents()})})).json();
+  if(r.error)throw 0;
+  $("drive-run-note").textContent=`seen ${r.seen} · consumed ${r.consumed} · leftover ${r.leftover} · skipped ${r.skipped} · ${r.memories} memories`;
+  drive();brain();}catch(e){$("drive-run-note").textContent="run failed";}};
+$("lib-run").onclick=async()=>{$("lib-msg").textContent="running…";
+  try{const r=await (await fetch("/api/librarian/run",{method:"POST"})).json();
+  $("lib-msg").textContent=`done: ${r.tags_scanned} tags, ${r.duplicates_confirmed} dups confirmed, ${r.expired_swept} expired, ${r.promoted} promoted`;
+  librarian();}catch(e){$("lib-msg").textContent="failed";}};
+$("ap-run").onclick=async()=>{$("ap-msg").textContent="running…";
+  try{const r=await (await fetch("/api/autopilot/run",{method:"POST"})).json();
+  $("ap-msg").textContent=`done: ${r.total_actions} actions (heal:${r.self_heal.fixed||0} clean:${r.cleaning.cleaned||0} maint:${r.maintenance.maintained||0})`;
+  autopilot();}catch(e){$("ap-msg").textContent="failed";}};
+refresh();setInterval(refresh,30000);
+</script>
+</body>
+</html>

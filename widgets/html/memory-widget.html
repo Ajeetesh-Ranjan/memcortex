@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The AI Architecture Lab — Memory Widget</title>
+<style>
+:root {
+    --bg: #0b0f14;
+    --card: #131a23;
+    --line: #223041;
+    --txt: #dbe6f3;
+    --dim: #8fa3bb;
+    --ok: #00e6a8;
+    --warn: #ffb454;
+    --bad: #ff6b6b;
+    --sand: #7A715F;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.widget {
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    color: var(--txt);
+    max-width: 340px;
+    font-family: inherit;
+}
+
+.aal-logo { width: 22px; height: 22px; border-radius: 5px; vertical-align: -5px; margin-right: 7px; }
+.aal-brand { color: var(--sand); letter-spacing: .14em; text-transform: uppercase; font-size: 9.5px; }
+.brain-host { margin: 10px 0 4px; border-top: 1px solid var(--line); padding-top: 10px; }
+.brain-host svg { width: 100%; height: auto; display: block; }
+.brain-host[hidden] { display: none; }
+.aal-spark { animation: aal-pulse 2.6s ease-in-out infinite; }
+@keyframes aal-pulse { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .aal-spark { animation: none; opacity: .8 } }
+.subj-row { display: flex; align-items: center; gap: 7px; padding: 3px 0; font-size: 11.5px; }
+.subj-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.subj-name { flex: 1 1 auto; color: var(--txt); }
+.subj-lobe { color: var(--dim); font-size: 10px; }
+.subj-val { color: var(--txt); font-variant-numeric: tabular-nums; }
+.subj-bar { height: 4px; border-radius: 2px; background: var(--line); width: 46px; flex: 0 0 auto; overflow: hidden; }
+.subj-bar > i { display: block; height: 100%; border-radius: 2px; }
+.agent-chip { display: inline-block; font-size: 10.5px; padding: 2px 7px; margin: 0 4px 4px 0;
+    border: 1px solid var(--line); border-radius: 999px; color: var(--dim); }
+.agent-chip.is-active { border-color: var(--ok); color: var(--ok); }
+.sec-h { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--dim); margin: 12px 0 5px; }
+
+/* Compact mode */
+.widget.compact { max-width: 200px; }
+.widget.minimal { max-width: 120px; }
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+}
+
+.status-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--unknown);
+    transition: background 0.3s;
+}
+
+.status-dot.healthy { background: var(--ok); }
+.status-dot.degraded { background: var(--warn); }
+.status-dot.unhealthy { background: var(--bad); }
+.status-dot.unknown { background: var(--dim); }
+
+.title { font-weight: 600; font-size: 14px; }
+.version { font-size: 11px; color: var(--dim); margin-left: auto; }
+
+.metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px 14px;
+}
+
+.metric {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+}
+
+.metric-value { font-size: 20px; font-weight: 700; line-height: 1; }
+.metric-label { font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+.services {
+    padding: 0 14px 12px;
+}
+
+.service-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+
+.service-row:last-child { border-bottom: none; }
+
+.service-name { color: var(--txt); }
+.service-status { display: flex; align-items: center; gap: 6px; }
+.service-dot { width: 8px; height: 8px; border-radius: 50%; }
+.service-dot.up { background: var(--ok); }
+.service-dot.down { background: var(--bad); }
+
+.autopilot {
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    background: rgba(0, 230, 168, 0.05);
+    border-radius: 0 0 12px 12px;
+    font-size: 11px;
+    color: var(--dim);
+}
+
+.autopilot strong { color: var(--ok); }
+
+.footer {
+    padding: 8px 14px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--dim);
+}
+
+.footer a { color: var(--ok); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-dot.healthy { animation: pulse 3s ease-in-out infinite; }
+.status-dot.degraded { animation: pulse 2s ease-in-out infinite; }
+.status-dot.unhealthy { animation: pulse 1s ease-in-out infinite; }
+
+/* Responsive */
+@media (max-width: 300px) {
+    .metrics { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="widget" id="widget">
+    <div class="header">
+        <div class="status-dot unknown" id="statusDot"></div>
+        <img class="aal-logo" id="brandLogo" alt="The AI Architecture Lab">
+        <span class="title">Unified Memory</span>
+        <span class="version" id="version">v1.0</span>
+    </div>
+
+    <div class="metrics">
+        <div class="metric">
+            <div class="metric-value" id="memories">—</div>
+            <div class="metric-label">Memories</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value" id="tokens">—</div>
+            <div class="metric-label">Tokens Saved</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value" id="docs">—</div>
+            <div class="metric-label">Documents</div>
+        </div>
+        <div class="metric">
+            <div class="metric-value" id="services">—</div>
+            <div class="metric-label">Services Up</div>
+        </div>
+    </div>
+
+    <div class="services" id="servicesList"></div>
+
+    <div class="brain-host" id="brainHost" hidden>
+        <svg id="brainSvg"></svg>
+    </div>
+    <div id="subjectList"></div>
+    <div id="agentList"></div>
+
+    <div class="autopilot" id="autopilot" style="display:none;">
+        Autopilot: <span id="apStatus">idle</span> · <span id="apActions">0</span> actions today
+    </div>
+
+    <div class="footer">
+        <a href="http://localhost:8080" target="_blank" id="dashboardLink">Open Dashboard →</a>
+        <span id="lastUpdate" style="margin-left:10px;"></span>
+    </div>
+</div>
+
+<!-- AI Architecture Lab segmented brain renderer, inlined verbatim so this
+     widget is fully standalone: no CDN, no network dependency. Source of
+     truth is widgets/brain3d/brain-svg.js -- keep the two in sync. -->
+<script>
+/* AI Architecture Lab — Segmented Brain Renderer
+ *
+ * Dependency-free SVG brain visualisation. Deliberately does NOT use Three.js:
+ * the Brain UI runs inside a Docker network that must work air-gapped, and the
+ * same renderer has to be reusable inside a Waybar popup and a tray tooltip.
+ *
+ * Anatomy: lateral (left-profile) view. Each lobe is a real anatomical region
+ * bound to a subject by brain_taxonomy.py. Lobe area + saturation + glow scale
+ * with live memory share, so the picture is a data display, not decoration.
+ */
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.BrainSVG = factory();
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  var VIEW = { w: 720, h: 460 };
+
+  /* Anatomical regions in lateral view. Coordinates are in viewBox units.
+   * `z` controls paint order (cerebellum/brainstem sit behind the cortex). */
+  var LOBES = {
+    Frontal: {
+      d: "M132 300 C96 268 84 224 100 186 C118 142 168 112 224 108 C258 105 286 116 302 132 C276 150 254 176 244 208 C232 248 234 288 254 320 C212 330 168 322 132 300 Z",
+      cx: 196, cy: 218, z: 3
+    },
+    Parietal: {
+      d: "M302 132 C286 116 258 105 224 108 C262 84 320 70 380 74 C430 77 470 96 494 124 C468 136 434 150 400 176 C362 206 330 224 302 232 C286 208 282 166 302 132 Z",
+      cx: 372, cy: 138, z: 3
+    },
+    Occipital: {
+      d: "M494 124 C520 148 540 178 548 210 C556 244 552 276 540 302 C524 276 500 244 468 214 C444 192 418 176 400 176 C434 150 468 136 494 124 Z",
+      cx: 500, cy: 208, z: 3
+    },
+    Temporal: {
+      d: "M244 232 C272 246 306 244 336 226 C372 204 408 190 446 192 C470 193 492 202 508 218 C486 246 456 274 420 296 C378 320 320 328 274 316 C258 296 250 266 244 232 Z",
+      cx: 372, cy: 264, z: 4
+    },
+    Association: {
+      d: "M282 156 C314 138 356 128 400 132 C436 136 466 150 484 172 C456 190 424 208 392 222 C352 240 306 240 276 224 C266 202 268 176 282 156 Z",
+      cx: 380, cy: 184, z: 5
+    },
+    Cerebellum: {
+      d: "M540 300 C562 300 578 318 574 340 C570 362 548 378 524 374 C500 370 484 350 486 330 C488 312 512 300 540 300 Z",
+      cx: 530, cy: 338, z: 2
+    },
+    Brainstem: {
+      d: "M296 318 C318 314 336 322 340 340 C344 358 336 376 320 384 C304 392 288 384 284 368 C280 350 284 326 296 318 Z",
+      cx: 312, cy: 350, z: 2
+    }
+  };
+
+  var SUBJECT_TO_LOBE = {
+    "Frontal Lobe": "Frontal",
+    "Parietal Lobe": "Parietal",
+    "Temporal Lobe": "Temporal",
+    "Occipital Lobe": "Occipital",
+    "Cerebellum": "Cerebellum",
+    "Brainstem": "Brainstem",
+    "Association Cortex": "Association"
+  };
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function hexToRgb(h) {
+    h = (h || "#888888").replace("#", "");
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function rgba(h, a) {
+    var c = hexToRgb(h);
+    return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+  }
+
+  /* Log scale: memory counts span 0..1e6, so raw shares of 0.1% would be
+   * invisible. log1p keeps small-but-nonzero subjects legible. */
+  function weightOf(n, maxN) {
+    if (!n) return 0;
+    if (!maxN) return 0.25;
+    return Math.max(0.18, Math.log1p(n) / Math.log1p(maxN));
+  }
+
+  function render(data, opts) {
+    opts = opts || {};
+    var lobes = (data && data.lobes) || [];
+    var byLobe = {};
+    lobes.forEach(function (l) {
+      var k = SUBJECT_TO_LOBE[l.lobe];
+      if (k) byLobe[k] = l;
+    });
+
+    var maxN = lobes.reduce(function (m, l) { return Math.max(m, l.memories || 0); }, 0);
+    var total = (data && data.total) || 0;
+    var showLabels = opts.labels !== false;
+
+    var defs = [], body = [], labels = [];
+
+    /* ---- gradients + filters ---- */
+    Object.keys(LOBES).forEach(function (key) {
+      var g = LOBES[key];
+      var d = byLobe[key];
+      var col = (d && d.color) || "#3a3f44";
+      var w = d ? weightOf(d.memories, maxN) : 0;
+      var gid = "grad-" + key;
+      defs.push(
+        '<radialGradient id="' + gid + '" cx="38%" cy="32%" r="78%">',
+        '<stop offset="0%" stop-color="' + rgba(col, 0.55 + 0.45 * w) + '"/>',
+        '<stop offset="55%" stop-color="' + rgba(col, 0.35 + 0.4 * w) + '"/>',
+        '<stop offset="100%" stop-color="' + rgba(col, 0.18 + 0.3 * w) + '"/>',
+        "</radialGradient>"
+      );
+      defs.push(
+        '<filter id="glow-' + key + '" x="-40%" y="-40%" width="180%" height="180%">',
+        '<feGaussianBlur stdDeviation="' + (3 + 7 * w).toFixed(2) + '" result="b"/>',
+        '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>',
+        "</filter>"
+      );
+    });
+
+    /* ambient cortex shell + sulci texture */
+    defs.push(
+      '<linearGradient id="shell" x1="0" y1="0" x2="1" y2="1">',
+      '<stop offset="0%" stop-color="#1a1c1e"/>',
+      '<stop offset="100%" stop-color="#0a0c0c"/>',
+      "</linearGradient>",
+      '<radialGradient id="vign" cx="50%" cy="42%" r="72%">',
+      '<stop offset="0%" stop-color="#20242a" stop-opacity="0.55"/>',
+      '<stop offset="100%" stop-color="#08090a" stop-opacity="0.9"/>',
+      "</radialGradient>"
+    );
+
+    /* ---- lobes, painted back-to-front ---- */
+    var order = Object.keys(LOBES).sort(function (a, b) {
+      return LOBES[a].z - LOBES[b].z;
+    });
+
+    order.forEach(function (key) {
+      var g = LOBES[key];
+      var d = byLobe[key];
+      var col = (d && d.color) || "#3a3f44";
+      var w = d ? weightOf(d.memories, maxN) : 0;
+      var live = d && d.memories > 0;
+      body.push(
+        '<path d="' + g.d + '" fill="url(#grad-' + key + ')"',
+        ' stroke="' + rgba(col, live ? 0.9 : 0.35) + '"',
+        ' stroke-width="' + (live ? 1.6 : 1) + '"',
+        ' filter="url(#glow-' + key + ')"',
+        live ? ' class="aal-lobe aal-live"' : ' class="aal-lobe"',
+        ' data-subject="' + esc(d ? d.subject : key) + '"',
+        '><title>' + esc((d ? d.subject : key) + (d ? " — " + d.lobe : "")) +
+        (d && d.memories ? " — " + d.memories + " memories" : " — empty") +
+        "</title></path>"
+      );
+
+      /* neural activity spark: dot count scales with live volume */
+      if (live) {
+        var dots = Math.min(9, 2 + Math.round(w * 7));
+        for (var i = 0; i < dots; i++) {
+          var a = (i / dots) * Math.PI * 2 + key.length;
+          var rad = 12 + w * 20;
+          body.push(
+            '<circle class="aal-spark" cx="' + (g.cx + Math.cos(a) * rad).toFixed(1) +
+            '" cy="' + (g.cy + Math.sin(a) * rad * 0.72).toFixed(1) +
+            '" r="' + (1.1 + w * 1.5).toFixed(2) + '" fill="' + rgba(col, 0.85) + '"/>'
+          );
+        }
+      }
+    });
+
+    /* ---- outline on top ---- */
+    body.push(
+      '<path d="M132 300 C96 268 84 224 100 186 C118 142 168 112 224 108 C262 84 320 70 380 74 C430 77 470 96 494 124 C520 148 540 178 548 210 C556 244 552 276 540 302"',
+      ' fill="none" stroke="#7A715F" stroke-opacity="0.55" stroke-width="1.4" stroke-linecap="round"/>'
+    );
+
+    /* ---- labels with leader lines ---- */
+    if (showLabels) {
+      var slots = [
+        { x: 40, y: 96 }, { x: 40, y: 176 }, { x: 40, y: 256 },
+        { x: 40, y: 336 }, { x: 566, y: 120 }, { x: 566, y: 200 },
+        { x: 566, y: 280 }, { x: 300, y: 424 }
+      ];
+      var si = 0;
+      Object.keys(LOBES).forEach(function (key) {
+        var g = LOBES[key];
+        var d = byLobe[key];
+        if (!d) return;
+        var s = slots[si % slots.length];
+        si++;
+        var w = weightOf(d.memories, maxN);
+        var anchorRight = s.x > 400;
+        var lx = s.x, ly = s.y;
+        var tx = anchorRight ? lx : lx + 96;
+        var ty = ly + 5;
+        var lbl = d.memories > 0
+          ? d.subject + "  " + d.memories.toLocaleString()
+          : d.subject + "  —";
+        var pct = total ? Math.round((d.memories / total) * 100) : 0;
+
+        labels.push(
+          '<g class="aal-label" data-subject="' + esc(d.subject) + '">',
+          '<circle cx="' + g.cx + '" cy="' + g.cy + '" r="3" fill="' + d.color + '"/>',
+          '<line x1="' + g.cx + '" y1="' + g.cy + '" x2="' +
+          (anchorRight ? lx + 88 : lx) + '" y2="' + ly + '"',
+          ' stroke="' + rgba(d.color, 0.5) + '" stroke-width="1" stroke-dasharray="3 3"/>',
+          '<text x="' + tx + '" y="' + ty + '" fill="#e8e4dc" font-size="12.5"',
+          ' font-family="Inter,system-ui,sans-serif" ' +
+          (anchorRight ? 'text-anchor="end"' : "") + '>',
+          esc(lbl),
+          '<tspan fill="#7A715F" font-size="11">' + (total ? pct + "%" : "") + "</tspan>",
+          "</text>",
+          '<text x="' + tx + '" y="' + (ty + 14) + '" fill="#7d8792" font-size="10"',
+          ' font-family="Inter,system-ui,sans-serif" ' +
+          (anchorRight ? 'text-anchor="end"' : "") + ">",
+          esc(d.lobe + " · " + d.role),
+          "</text></g>"
+        );
+      });
+    }
+
+    var agents = (data && data.agents) || [];
+    var agentChips = agents.slice(0, 6).map(function (a) {
+      var live = a.status === "active";
+      return '<span class="aal-agent' + (live ? " is-active" : "") + '">' +
+        esc(a.agent_type || "unknown") +
+        (a.model ? '<i>' + esc(a.model) + "</i>" : "") + "</span>";
+    }).join("");
+
+    return '' +
+      '<svg class="aal-brain" viewBox="0 0 ' + VIEW.w + ' ' + VIEW.h +
+      '" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+      'aria-label="Segmented memory brain by subject">' +
+      "<defs>" + defs.join("") + "</defs>" +
+      '<rect width="' + VIEW.w + '" height="' + VIEW.h + '" fill="url(#vign)" rx="14"/>' +
+      body.join("") + labels.join("") +
+      '<text x="24" y="34" fill="#7A715F" font-size="11" letter-spacing="2.4" ' +
+      'font-family="Inter,system-ui,sans-serif">THE AI ARCHITECTURE LAB</text>' +
+      '<text x="24" y="' + (VIEW.h - 16) + '" fill="#5c656e" font-size="10.5" ' +
+      'font-family="Inter,system-ui,sans-serif">' +
+      total.toLocaleString() + " memories · " +
+      ((data && data.classified) || 0) + " classified · " +
+      agents.length + " agent" + (agents.length === 1 ? "" : "s") + "</text>" +
+      (agentChips ? '<g transform="translate(24 52)">' + agentChips + "</g>" : "") +
+      "</svg>";
+  }
+
+  return { render: render, LOBES: LOBES, SUBJECT_TO_LOBE: SUBJECT_TO_LOBE, VIEW: VIEW };
+});
+</script>
+<script>
+const API_BASE = window.MEMORY_API_BASE || 'http://localhost:8080';
+const REFRESH_MS = (window.MEMORY_REFRESH_SEC || 30) * 1000;
+
+const $ = id => document.getElementById(id);
+
+// Brand mark is served by Brain UI; hide it if this build predates /static/.
+(function bindLogo() {
+    const img = $('brandLogo');
+    img.src = (window.MEMORY_API_BASE || 'http://localhost:8080') + '/static/logo-32.png';
+    img.addEventListener('error', () => { img.style.display = 'none'; });
+})();
+
+async function fetchJSON(path) {
+    try {
+        const r = await fetch(API_BASE + path, { cache: 'no-store' });
+        if (!r.ok) throw new Error(r.status);
+        return await r.json();
+    } catch (e) {
+        console.warn('Fetch failed:', path, e);
+        return null;
+    }
+}
+
+function setDotStatus(el, status) {
+    el.className = 'status-dot ' + status;
+}
+
+function fmt(n) {
+    return n == null ? '—' : Number(n).toLocaleString();
+}
+
+async function refresh() {
+    const [overview, health, autopilot] = await Promise.all([
+        fetchJSON('/api/overview'),
+        fetchJSON('/healthz'),
+        fetchJSON('/api/autopilot/status')
+    ]);
+
+    const now = new Date();
+    $('lastUpdate').textContent = 'Updated ' + now.toLocaleTimeString();
+
+    if (!overview) {
+        setDotStatus($('statusDot'), 'unknown');
+        $('memories').textContent = '—';
+        $('tokens').textContent = '—';
+        $('docs').textContent = '—';
+        $('services').textContent = '0/0';
+        $('servicesList').innerHTML = '<div style="color:var(--dim);font-size:11px;padding:8px;">Unreachable</div>';
+        $('brainHost').hidden = true;
+        $('subjectList').innerHTML = '';
+        $('agentList').innerHTML = '';
+        $('autopilot').style.display = 'none';
+        return;
+    }
+
+    // Overall status
+    const svc = [
+        overview.supermemory?.up,
+        overview.qdrant?.up,
+        overview.redis?.up,
+        overview.postgres?.up,
+        overview.headroom?.up,
+    ].filter(v => v !== undefined);
+
+    const up = svc.filter(Boolean).length;
+    const total = svc.length;
+    const status = up === 0 ? 'unhealthy' : up === total ? 'healthy' : 'degraded';
+    setDotStatus($('statusDot'), status);
+
+    // Metrics
+    $('memories').textContent = fmt(overview.supermemory?.memories);
+    $('tokens').textContent = fmt(overview.tokens?.saved);
+    $('docs').textContent = fmt(overview.supermemory?.documents);
+    $('services').textContent = `${up}/${total}`;
+
+    // Services list
+    const services = [
+        { name: 'Supermemory', up: overview.supermemory?.up },
+        { name: 'Qdrant', up: overview.qdrant?.up },
+        { name: 'Redis', up: overview.redis?.up },
+        { name: 'PostgreSQL', up: overview.postgres?.up },
+        { name: 'Headroom', up: overview.headroom?.up },
+    ].filter(s => s.up !== undefined);
+
+    $('servicesList').innerHTML = services.map(s => `
+        <div class="service-row">
+            <span class="service-name">${s.name}</span>
+            <span class="service-status">
+                <span class="service-dot ${s.up ? 'up' : 'down'}"></span>
+                ${s.up ? 'UP' : 'DOWN'}
+            </span>
+        </div>
+    `).join('');
+
+    // Autopilot
+    if (autopilot?.enabled) {
+        $('autopilot').style.display = 'block';
+        const recent = autopilot.recent?.length || 0;
+        $('apStatus').textContent = recent > 0 ? 'active' : 'idle';
+        $('apActions').textContent = recent;
+    } else {
+        $('autopilot').style.display = 'none';
+    }
+
+    await renderBrain();
+}
+
+// Segmented brain + subject table + agent roster. The renderer is injected
+// from the dashboard if this file is served by Brain UI; otherwise it falls
+// back to a compact subject table so the widget never hard-fails.
+async function renderBrain() {
+    const brain = await fetchJSON('/api/brain');
+    if (!brain || !brain.lobes) {
+        $('brainHost').hidden = true;
+        $('subjectList').innerHTML = '';
+        $('agentList').innerHTML = '';
+        return;
+    }
+    if (window.BrainSVG) {
+        $('brainHost').hidden = false;
+        $('brainSvg').outerHTML = window.BrainSVG.render(brain, { labels: false });
+    }
+
+    const max = brain.lobes.reduce((m, l) => Math.max(m, l.memories || 0), 0) || 1;
+    const top = [...brain.lobes].sort((a, b) => (b.memories || 0) - (a.memories || 0));
+    $('subjectList').innerHTML =
+        '<div class="sec-h">Memory by subject</div>' +
+        top.map(l => {
+            const pct = brain.total ? Math.round((l.memories / brain.total) * 100) : 0;
+            const w = Math.round(((l.memories || 0) / max) * 100);
+            return `<div class="subj-row">
+              <span class="subj-dot" style="background:${l.color}"></span>
+              <span class="subj-name">${l.subject}<span class="subj-lobe"> · ${l.lobe}</span></span>
+              <span class="subj-bar"><i style="width:${w}%;background:${l.color}"></i></span>
+              <span class="subj-val">${fmt(l.memories)} ${pct}%</span>
+            </div>`;
+        }).join('');
+
+    const agents = brain.agents || [];
+    const active = agents.filter(a => a.status === 'active').length;
+    $('agentList').innerHTML =
+        '<div class="sec-h">Agents · ' + active + ' active / ' + agents.length + '</div>' +
+        (agents.length
+            ? agents.slice(0, 8).map(a =>
+                `<span class="agent-chip${a.status === 'active' ? ' is-active' : ''}">` +
+                `${a.agent_type || 'unknown'}${a.model ? ' · ' + a.model : ''}</span>`).join('')
+            : '<div class="subj-lobe">No agent sessions recorded yet.</div>');
+}
+
+// Initial load
+refresh();
+
+// Auto-refresh
+setInterval(refresh, REFRESH_MS);
+
+// Click to open dashboard
+document.getElementById('widget').addEventListener('click', (e) => {
+    if (e.target.closest('a')) return;
+    window.open(API_BASE, '_blank');
+});
+</script>
+</body>
+</html>

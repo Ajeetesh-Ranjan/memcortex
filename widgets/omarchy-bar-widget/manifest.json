@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.aial.memory-brain",
+  "name": "AI Architecture Lab Memory Brain",
+  "version": "1.0.0",
+  "author": "The AI Architecture Lab",
+  "license": "MIT",
+  "description": "Live Unified Memory Stack in your bar: a segmented brain of memory by subject, database health, connected agents, and value delivered.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Memory Brain",
+    "description": "Segmented brain of memory by subject, service health, agents, and value.",
+    "category": "Productivity",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

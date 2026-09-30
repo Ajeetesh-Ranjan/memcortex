@@ -1,0 +1,84 @@
+/* The AI Architecture Lab — Unified Memory Stack Waybar Styles
+ * Add to your waybar style.css
+ */
+
+/* Memory module colors */
+#custom-memory.memory-healthy {
+    color: #00e6a8;
+    background: rgba(0, 230, 168, 0.1);
+}
+
+#custom-memory.memory-degraded {
+    color: #ffb454;
+    background: rgba(255, 180, 84, 0.1);
+}
+
+#custom-memory.memory-unhealthy {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.1);
+}
+
+#custom-memory.memory-unknown {
+    color: #8fa3bb;
+    background: rgba(143, 163, 187, 0.1);
+}
+
+/* Hover effect */
+#custom-memory:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transition: background 0.2s ease;
+}
+
+/* Tooltip styling (waybar handles this, but you can customize) */
+#custom-memory tooltip {
+    background: #131a23;
+    border: 1px solid #223041;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* Right-click menu (requires waybar 0.9.20+) */
+#custom-memory menu {
+    background: #131a23;
+    border: 1px solid #223041;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+#custom-memory menu menuitem {
+    padding: 8px 16px;
+    border-radius: 4px;
+    color: #dbe6f3;
+}
+
+#custom-memory menu menuitem:hover {
+    background: #223041;
+}
+
+/* Animation for status changes */
+@keyframes pulse-healthy {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+#custom-memory.memory-healthy {
+    animation: pulse-healthy 3s ease-in-out infinite;
+}
+
+@keyframes pulse-degraded {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+#custom-memory.memory-degraded {
+    animation: pulse-degraded 2s ease-in-out infinite;
+}
+
+@keyframes pulse-unhealthy {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+#custom-memory.memory-unhealthy {
+    animation: pulse-unhealthy 1s ease-in-out infinite;
+}

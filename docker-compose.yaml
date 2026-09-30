@@ -1,0 +1,33 @@
+# MemCortex client -- dashboard + API proxy.
+#
+# The backend (Postgres, Qdrant, Supermemory, identity, brain-ui) is NOT in
+# this file. Point MEMCORTEX_BACKEND at a running backend, local or remote.
+#
+#   docker compose up -d          # then open http://127.0.0.1:8090
+#
+# If the backend is on another host, expose it over TLS and set:
+#   MEMCORTEX_BACKEND=https://memory.example.com
+#
+# Binding: 127.0.0.1 only. The dashboard is unauthenticated and the API it
+# proxies is not, so do not publish this without TLS and a network policy.
+
+services:
+  memcortex:
+    build: .
+    image: memcortex:latest
+    container_name: memcortex
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      MEMCORTEX_BACKEND: "${MEMCORTEX_BACKEND:-http://host.docker.internal:8080}"
+      MEMCORTEX_HOST: "0.0.0.0"
+      MEMCORTEX_PORT: "8090"
+    extra_hosts:
+      # so the default works against a backend on the Docker host
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    cap_drop:
+      - ALL
