@@ -25,9 +25,51 @@ import urllib.request
 from datetime import datetime, timezone
 
 DEFAULT_API = os.environ.get("MEMORY_API_BASE", "http://localhost:8080")
-# Operator credential for the local dashboard compartment. Set it to the same
-# value as BRAIN_UI_SERVICE_TOKEN in the stack .env.
-MEMORY_API_TOKEN = os.environ.get("MEMORY_API_TOKEN", "")
+
+
+def _load_token():
+    """Find the operator credential.
+
+    The environment variable is checked first, but it cannot be the only
+    source: this collector is normally launched by the panel process, and a
+    panel manager started at login inherits nothing from an interactive shell.
+    So exporting MEMORY_API_TOKEN in .bashrc does not reach it, the API
+    answers 401, and the widget renders an empty brain -- which looks exactly
+    like an empty account.
+
+    Fall back to a dotenv file, preferring an explicit path and then the
+    per-user one written by the stack installer.
+    """
+    tok = os.environ.get("MEMORY_API_TOKEN", "").strip()
+    if tok:
+        return tok
+
+    candidates = []
+    if os.environ.get("MEMCORTEX_ENV_FILE"):
+        candidates.append(os.environ["MEMCORTEX_ENV_FILE"])
+    candidates.append(os.path.join(
+        os.path.expanduser("~/.config/memcortex"), "env"))
+    if os.environ.get("MEMORY_STACK_DIR"):
+        candidates.append(os.path.join(os.environ["MEMORY_STACK_DIR"], ".env"))
+
+    for path in candidates:
+        try:
+            with open(path) as fh:
+                for line in fh:
+                    line = line.strip()
+                    if line.startswith("#") or "=" not in line:
+                        continue
+                    k, _, v = line.partition("=")
+                    k, v = k.strip(), v.strip().strip('"').strip("'")
+                    if v and k in ("MEMORY_API_TOKEN",
+                                   "BRAIN_UI_SERVICE_TOKEN"):
+                        return v
+        except OSError:
+            continue
+    return ""
+
+
+MEMORY_API_TOKEN = _load_token()
 DEFAULT_OUT = os.path.join(
     os.environ.get("XDG_STATE_HOME",
                    os.path.expanduser("~/.local/state")),
@@ -203,7 +245,7 @@ def fetch(url, timeout):
     # every /api route answers 401 and the widget would silently show an empty
     # brain, which looks like a broken stack rather than a missing token.
     headers = {"Accept": "application/json"}
-    token = os.environ.get("MEMORY_API_TOKEN", "").strip()
+    token = MEMORY_API_TOKEN.strip()
     if token:
         headers["Authorization"] = "Bearer %s" % token
     req = urllib.request.Request(url, headers=headers)
