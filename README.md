@@ -25,7 +25,7 @@ a separate repository.
 git clone https://github.com/Ajeetesh-Ranjan/memcortex.git
 cd memcortex
 docker compose up -d
-open http://127.0.0.1:8090
+open http://127.0.0.1:8095
 ```
 
 You need a MemCortex backend running and reachable. Point at it with
@@ -42,7 +42,7 @@ MEMCORTEX_BACKEND=https://memory.example.com docker compose up -d
 Running from source instead, no container:
 
 ```bash
-python3 bin/memcortex-client.py --backend http://127.0.0.1:8080 --port 8090
+python3 bin/memcortex-client.py --backend http://127.0.0.1:8080 --port 8095
 ```
 
 No dependencies. Python 3.10+ standard library only — no `pip install`, no

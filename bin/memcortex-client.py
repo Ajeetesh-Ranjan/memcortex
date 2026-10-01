@@ -205,7 +205,7 @@ def main():
                                                         "http://127.0.0.1:8080"),
                     help="base URL of the running backend (default: %(default)s)")
     ap.add_argument("--port", type=int,
-                    default=int(os.environ.get("MEMCORTEX_PORT", "8090")))
+                    default=int(os.environ.get("MEMCORTEX_PORT", "8095")))
     ap.add_argument("--host", default=os.environ.get("MEMCORTEX_HOST",
                                                      "127.0.0.1"))
     a = ap.parse_args()

@@ -3,13 +3,27 @@
 # The backend (Postgres, Qdrant, Supermemory, identity, brain-ui) is NOT in
 # this file. Point MEMCORTEX_BACKEND at a running backend, local or remote.
 #
-#   docker compose up -d          # then open http://127.0.0.1:8090
+#   docker compose up -d          # then open http://127.0.0.1:8095
 #
-# If the backend is on another host, expose it over TLS and set:
-#   MEMCORTEX_BACKEND=https://memory.example.com
+# PORT: 8095, not the obvious 8090. If you are running this alongside a
+# MemCortex backend, 8090 is already taken by the failover sidecar and compose
+# will fail with "port is already allocated". Check `docker compose ps` first.
 #
-# Binding: 127.0.0.1 only. The dashboard is unauthenticated and the API it
-# proxies is not, so do not publish this without TLS and a network policy.
+# NETWORK: host mode, deliberately.
+#
+#   A MemCortex backend binds 127.0.0.1, and a container cannot reach a
+#   loopback-only listener on the host -- host.docker.internal resolves to the
+#   docker bridge gateway, so a normal bridge network yields
+#   502 "backend unreachable: timed out" even though the backend is healthy.
+#
+#   Host networking makes the client share the host's loopback, so it can talk
+#   to the backend without widening the backend's bind address to 0.0.0.0,
+#   which would be the wrong trade. Because the client also binds 127.0.0.1, it
+#   stays unreachable from the network -- same posture as the backend.
+#
+#   If your backend is genuinely on another host, drop network_mode and use
+#   the ports mapping instead:
+#       MEMCORTEX_BACKEND=https://memory.example.com docker compose up -d
 
 services:
   memcortex:
@@ -17,15 +31,13 @@ services:
     image: memcortex:latest
     container_name: memcortex
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:8090:8090"
+    network_mode: host
     environment:
-      MEMCORTEX_BACKEND: "${MEMCORTEX_BACKEND:-http://host.docker.internal:8080}"
-      MEMCORTEX_HOST: "0.0.0.0"
-      MEMCORTEX_PORT: "8090"
-    extra_hosts:
-      # so the default works against a backend on the Docker host
-      - "host.docker.internal:host-gateway"
+      # Host loopback, because host networking. This is not configurable via
+      # the host port -- change MEMCORTEX_PORT if 8095 is taken.
+      MEMCORTEX_BACKEND: "${MEMCORTEX_BACKEND:-http://127.0.0.1:8080}"
+      MEMCORTEX_HOST: "${MEMCORTEX_HOST:-127.0.0.1}"
+      MEMCORTEX_PORT: "${MEMCORTEX_PORT:-8095}"
     security_opt:
       - no-new-privileges:true
     read_only: true
