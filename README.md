@@ -118,6 +118,18 @@ allowlist makes `test_authenticated_call_keeps_its_compartment` fail with
 `AssertionError: 201 != 401`, so the credential-forwarding guarantee is
 genuinely covered rather than vacuously true.
 
+## Relationship to the backend
+
+The dashboard (`dashboard/index.html`) and `widgets/` are published here and
+also in the backend repository, because the backend serves the dashboard as
+part of the full stack. **The backend repository is the source of truth for
+both.** If you are changing either, change it there and run its
+`bin/sync-to-memcortex.sh`.
+
+This repository ships the client only. Backend changes — identity,
+compartments, ingestion, the API surface — land in the backend repository and
+are not duplicated here.
+
 ## Status
 
 Client-side work is complete and tested. Not yet done:
